@@ -46,25 +46,27 @@ $('#load-table').onclick = async () => {
   selectedRows = [];
   $('#table-wrap').querySelectorAll("input[type='checkbox']").forEach(cb => cb.onchange = () => {
     const idx = Number(cb.dataset.i);
-    if (cb.checked) selectedRows.push(out.rows[idx]); else selectedRows = selectedRows.filter(x=>x!==out.rows[idx]);
+    if (cb.checked) selectedRows.push({ row: out.rows[idx], index: idx });
+    else selectedRows = selectedRows.filter(x => x.index !== idx);
   });
   $('#insert-row').onclick = async () => {
     const values = Object.fromEntries(cols.map(c=>[c,null]));
     alert(JSON.stringify(await j(`/api/servers/${s}/table-data/${schema}/${table}`, {method:'POST',body:JSON.stringify({values})})));
   };
   $('#save-first').onclick = async () => {
-    const row = selectedRows[0]; if(!row) return alert('select row');
+    const selected = selectedRows[0]; if(!selected) return alert('select row');
+    const row = selected.row;
     const edited = {...row};
-    $('#table-wrap').querySelectorAll("td[contenteditable='true']").forEach(td=>{ if(Number(td.dataset.i)===0) edited[td.dataset.c]=td.textContent; });
+    $('#table-wrap').querySelectorAll("td[contenteditable='true']").forEach(td=>{ if(Number(td.dataset.i)===selected.index) edited[td.dataset.c]=td.textContent; });
     alert(JSON.stringify(await j(`/api/servers/${s}/table-data/${schema}/${table}`, {method:'PATCH',body:JSON.stringify({primaryKeys:pks,keyValues:row,values:edited})})));
   };
   $('#delete-first').onclick = async () => {
-    const row = selectedRows[0]; if(!row) return alert('select row');
-    if(confirm('Delete selected row?')) alert(JSON.stringify(await j(`/api/servers/${s}/table-data/${schema}/${table}`, {method:'DELETE',body:JSON.stringify({primaryKeys:pks,rows:[row]})})));
+    const selected = selectedRows[0]; if(!selected) return alert('select row');
+    if(confirm('Delete selected row?')) alert(JSON.stringify(await j(`/api/servers/${s}/table-data/${schema}/${table}`, {method:'DELETE',body:JSON.stringify({primaryKeys:pks,rows:[selected.row]})})));
   };
   $('#bulk-delete').onclick = async () => {
     if(!selectedRows.length) return alert('select rows');
-    if(confirm(`Delete ${selectedRows.length} rows?`)) alert(JSON.stringify(await j(`/api/servers/${s}/table-data/${schema}/${table}`, {method:'DELETE',body:JSON.stringify({primaryKeys:pks,rows:selectedRows})})));
+    if(confirm(`Delete ${selectedRows.length} rows?`)) alert(JSON.stringify(await j(`/api/servers/${s}/table-data/${schema}/${table}`, {method:'DELETE',body:JSON.stringify({primaryKeys:pks,rows:selectedRows.map((x)=>x.row)})})));
   };
 };
 
