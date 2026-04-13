@@ -1,61 +1,76 @@
-# EasyPostgre Admin Vault MVP
+# easypostgre
 
-This repository now includes a server-side admin login flow with protected routes, session validation middleware, and a credential vault service that encrypts database secrets at rest.
+A minimal TypeScript service scaffold for secure PostgreSQL credential handling and backup prerequisite checks.
 
-## What is implemented
+## Feature list
 
-- **Admin login flow**
-  - `POST /auth/login` validates admin credentials from environment variables.
-  - A server-side session is created and validated by middleware on protected routes.
-  - `POST /auth/logout` invalidates the session.
-- **Protected routes**
-  - `GET /admin/me`
-  - `GET/POST/PATCH/DELETE /credentials`
-- **Credential vault service (server-only secret handling)**
-  - Passwords are encrypted at rest using AES-256-GCM with an app-level secret (`APP_SECRET`).
-  - API responses only include masked password values (`passwordMasked`).
-  - Plaintext secrets are never returned to client responses.
-- **Input validation with Zod**
-  - Credential create/update payloads are schema-validated.
-  - Delete operations require explicit confirmation tokens.
+- Auth secret and encryption key driven configuration via environment variables.
+- AES-256-GCM credential encryption/decryption utilities.
+- Input validation helpers for required values, storage paths, and database identifiers.
+- HTTP API health endpoint (`GET /health`).
+- HTTP API prerequisite endpoint (`GET /api/v1/system/prerequisites`) that reports whether `pg_dump` and `pg_restore` are available.
+- Test foundation with unit tests (crypto + validation) and one integration-style API test.
+- CI-friendly scripts for linting, type-checking, and building.
 
-## Environment variables
+## Setup
 
-Required:
+1. **Install dependencies**
+   ```bash
+   npm ci
+   ```
+2. **Create your environment file**
+   ```bash
+   cp .env.example .env
+   ```
+3. **Set secrets**
+   - `AUTH_SECRET`: use at least 32 random characters.
+   - `CREDENTIAL_ENCRYPTION_KEY_BASE64`: must be a base64-encoded 32-byte key.
+4. **Run tests**
+   ```bash
+   npm test
+   ```
+5. **Start the service**
+   ```bash
+   RUN_SERVER=1 NODE_ENV=production node --enable-source-maps dist/src/server.js
+   ```
 
-- `ADMIN_PASSWORD`: admin password for login.
-- `APP_SECRET`: application secret used to derive encryption key.
+## Architecture
 
-Optional:
+- `src/crypto.js`: encryption/decryption boundary (credential confidentiality).
+- `src/validation.js`: centralized validation for user/environment inputs.
+- `src/server.js`: API surface and runtime checks for backup/restore prerequisites.
+- `tests/*.test.js`: foundational unit and integration-style tests.
 
-- `ADMIN_USER` (default: `admin`)
-- `SESSION_TTL_MINUTES` (default: `60`)
-- `PORT` (default: `3000`)
+This separation keeps cryptography, validation, and HTTP concerns isolated and easier to evolve independently.
 
-## Threat model and limitations (MVP)
+## Security tradeoffs
 
-### Threat model
+- Uses authenticated encryption (AES-256-GCM), but key management is environment-based; production deployments should source keys from a KMS or secret manager rather than local `.env` files.
+- Validation prevents obvious path traversal and identifier injection patterns but does not replace deeper authorization checks.
+- Endpoint only reports binary availability and avoids exposing detailed host command output to reduce leak risk.
+- No persistent auth/session implementation is included yet; this is intentionally a scaffold.
 
-This MVP is designed to reduce accidental secret disclosure in a single-admin environment:
+## Backup/restore prerequisites and fallback behavior
 
-- Protects credential storage at rest by encrypting secret fields.
-- Restricts credential APIs behind authenticated admin sessions.
-- Adds explicit confirmation tokens for destructive operations.
-- Returns masked values to UI to reduce overexposure of sensitive fields.
+This project expects these PostgreSQL client binaries to be installed on runtime hosts:
 
-### Known limitations
+- `pg_dump` (for backups)
+- `pg_restore` (for restores)
 
-- **Single-admin assumption:** one static admin credential pair from env; no multi-user RBAC.
-- **Local secret management:** `APP_SECRET` and admin credentials are env-managed; secure distribution/rotation is external.
-- **In-memory storage:** sessions, confirmation tokens, and credentials are in-memory and reset on restart.
-- **No brute-force throttling:** login endpoint currently lacks rate limiting and lockout controls.
-- **No CSRF token protection:** cookie is `HttpOnly` and `SameSite=Strict`, but full CSRF strategy is not implemented.
-- **Server compromise risk:** if runtime memory is compromised, plaintext may be observable during decryption operations.
+The endpoint `GET /api/v1/system/prerequisites` returns:
 
-## Quick start
+- `pgDump`: whether `pg_dump --version` succeeds.
+- `pgRestore`: whether `pg_restore --version` succeeds.
+- `fallbackMode`: `true` when either binary is unavailable.
 
-```bash
-npm install
-ADMIN_PASSWORD='change-me' APP_SECRET='a-very-long-random-secret' npm start
-```
+### Fallback behavior when binaries are unavailable
 
+When `fallbackMode` is `true`, callers should disable backup/restore actions and surface an operational warning. This avoids failing mid-operation and keeps behavior deterministic in constrained environments (e.g., slim containers without PostgreSQL client tooling).
+
+## Known limitations
+
+- No real credential persistence implementation yet (only utility layer).
+- No actual backup/restore execution orchestration yet.
+- No authentication middleware or role-based authorization.
+- No migration, multi-tenant isolation, or retention policies yet.
+- Fallback mode is informational; caller-side enforcement is required.
