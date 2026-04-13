@@ -1,0 +1,12 @@
+{
+  "name": "easypostgre",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "rm -rf dist && mkdir -p dist && cp -R src dist/",
+    "typecheck": "node --check src/*.js tests/*.js",
+    "lint": "eslint src tests",
+    "test": "node --test"
+  }
+}
