@@ -1,5 +1,6 @@
 import express from "express";
 import path from "node:path";
+import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
@@ -34,6 +35,16 @@ function safeServer(server: ReturnType<typeof store.getServer>) {
   return server;
 }
 
+function toServerRecord(data: z.infer<typeof serverSchema>, id: string, now: string) {
+  const { password: _password, ...server } = data;
+  return { ...server, id, createdAt: now, updatedAt: now };
+}
+
+function withoutPassword<T extends { password?: string }>(data: T): Omit<T, "password"> {
+  const { password: _password, ...rest } = data;
+  return rest;
+}
+
 async function testConnection(payload: ServerConnectionPayload) {
   const { Pool } = await import("pg");
   const pool = new Pool({
@@ -54,7 +65,7 @@ async function testConnection(payload: ServerConnectionPayload) {
 }
 
 app.get("/api/servers", (_req, res) => {
-  res.json({ servers: store.listServers() });
+  res.json({ servers: store.listServers().map(safeServer) });
 });
 
 app.post("/api/servers", async (req, res) => {
@@ -62,7 +73,7 @@ app.post("/api/servers", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  const server = { ...parsed.data, id, createdAt: now, updatedAt: now };
+  const server = toServerRecord(parsed.data, id, now);
   try {
     await testConnection(parsed.data);
     store.setServer(server, parsed.data.password);
@@ -84,7 +95,7 @@ app.put("/api/servers/:serverId", async (req, res) => {
 
   const next = {
     ...current,
-    ...parsed.data,
+    ...withoutPassword(parsed.data),
     updatedAt: new Date().toISOString()
   };
 
@@ -420,6 +431,7 @@ app.post("/api/servers/:serverId/backup", async (req, res) => {
   const password = store.getPassword(p.data.serverId);
   if (!server || !password) return res.status(404).json({ error: "Server not found" });
   const outputPath = path.resolve("backups", `${server.name}-${Date.now()}.sql`);
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
   const check = await new Promise<boolean>((resolve) => {
     const proc = spawn("which", ["pg_dump"]);
