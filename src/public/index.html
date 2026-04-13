@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EasyPostgre MVP</title>
+  <style>
+    body{font-family:Arial;margin:0;display:grid;grid-template-columns:280px 1fr;height:100vh}
+    aside{border-right:1px solid #ddd;padding:12px;overflow:auto}
+    main{padding:12px;overflow:auto}
+    textarea,input,select,button{margin:4px 0;padding:6px}
+    .box{border:1px solid #ddd;padding:8px;margin-bottom:10px}
+    table{border-collapse:collapse;width:100%} td,th{border:1px solid #ddd;padding:4px;font-size:12px}
+  </style>
+</head>
+<body>
+  <aside>
+    <div class="box">
+      <h3>Server</h3>
+      <form id="server-form">
+        <input name="name" placeholder="Name" required />
+        <input name="host" placeholder="Host" value="localhost" required />
+        <input name="port" placeholder="Port" value="5432" required />
+        <input name="user" placeholder="User" required />
+        <input name="password" placeholder="Password" type="password" required />
+        <input name="database" placeholder="Database" required />
+        <select name="envTag"><option value="">env</option><option>local</option><option>staging</option><option>prod</option></select>
+        <label><input type="checkbox" name="ssl"/>SSL</label><br>
+        <button>Add/Update</button>
+      </form>
+      <select id="server-select" style="width:100%"></select>
+      <button id="test-server">Test</button>
+      <button id="delete-server">Delete</button>
+    </div>
+    <div class="box">
+      <h3>Explorer</h3>
+      <button id="load-meta">Refresh Metadata</button>
+      <pre id="tree"></pre>
+    </div>
+  </aside>
+  <main>
+    <div class="box">
+      <h3>Table Data</h3>
+      <input id="schema" value="public" placeholder="schema" />
+      <input id="table" placeholder="table" />
+      <input id="filter" placeholder="filter" />
+      <button id="load-table">Load</button>
+      <button id="bulk-delete">Bulk Delete Selected</button>
+      <div id="table-wrap"></div>
+    </div>
+    <div class="box">
+      <h3>SQL Runner</h3>
+      <textarea id="sql" rows="5" style="width:100%">select now();</textarea><br>
+      <input id="snippet-name" placeholder="snippet name" />
+      <button id="run-sql">Run</button>
+      <button id="save-snippet">Save snippet</button>
+      <div id="sql-result"></div>
+      <h4>History</h4><pre id="history"></pre>
+      <h4>Snippets</h4><pre id="snippets"></pre>
+    </div>
+    <div class="box">
+      <h3>Roles + Backup</h3>
+      <input id="role-name" placeholder="new role" />
+      <input id="role-pass" placeholder="password optional" />
+      <button id="create-role">Create Role</button>
+      <input id="grant-role" placeholder="role" />
+      <input id="grant-to" placeholder="grantee" />
+      <button id="grant">Grant</button>
+      <button id="refresh-roles">List roles</button>
+      <button id="backup">Backup/Export</button>
+      <pre id="roles"></pre>
+      <pre id="backup-out"></pre>
+    </div>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
